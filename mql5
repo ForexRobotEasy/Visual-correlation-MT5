@@ -1,0 +1,106 @@
+
+// Program Name: Visual Correlation MT5
+// Developer's Site: forexroboteasy.com
+// Development Name: Forex Robot Easy Team
+
+// Define input parameters
+input int period = 20; // Period for calculating correlation
+input int overlayBars = 20; // Number of bars to overlay
+input color positiveColor = clrGreen; // Color for positive correlation
+input color negativeColor = clrRed; // Color for negative correlation
+input color neutralColor = clrGray; // Color for neutral correlation
+
+// Define global variables
+double[][] correlation; // Array to store correlation values
+color[][] barColors; // Array to store bar colors
+
+// Initialize the indicator
+int OnInit()
+{
+    // Set indicator buffers
+    SetIndexBuffer(0, correlation);
+    SetIndexBuffer(1, barColors);
+    
+    // Set indicator label
+    IndicatorSetString(INDICATOR_SHORTNAME, 'Visual Correlation MT5');
+    
+    return(INIT_SUCCEEDED);
+}
+
+// Calculate correlation for each currency pair
+void CalculateCorrelation()
+{
+    int totalSymbols = SymbolsTotal();
+    int startIndex = Bars - period - overlayBars;
+    
+    for(int i=0; i<totalSymbols; i++)
+    {
+        string symbol1 = SymbolName(i, false);
+        
+        for(int j=i+1; j<totalSymbols; j++)
+        {
+            string symbol2 = SymbolName(j, false);
+            
+            double[] series1 = new double[period];
+            double[] series2 = new double[period];
+            
+            // Copy price data to series arrays
+            CopyClose(symbol1, PERIOD_CURRENT, startIndex, period, series1);
+            CopyClose(symbol2, PERIOD_CURRENT, startIndex, period, series2);
+            
+            // Calculate correlation coefficient
+            double corr = Corr(series1, series2, period);
+            
+            // Store correlation value in array
+            correlation[i][j] = corr;
+            
+            // Set bar color based on correlation value
+            if(corr > 0)
+                barColors[i][j] = positiveColor;
+            else if(corr < 0)
+                barColors[i][j] = negativeColor;
+            else
+                barColors[i][j] = neutralColor;
+        }
+    }
+}
+
+// Draw overlay bars on the chart
+void DrawOverlayBars()
+{
+    int startIndex = Bars - period - overlayBars;
+    int barWidth = (ChartWidth() / overlayBars) - 1;
+    
+    for(int i=0; i<overlayBars; i++)
+    {
+        for(int j=0; j<SymbolsTotal(); j++)
+        {
+            for(int k=j+1; k<SymbolsTotal(); k++)
+            {
+                double value = correlation[j][k];
+                color color = barColors[j][k];
+                
+                // Draw overlay bar
+                int x = ChartScreenShot(NULL, 0);
+                int y = ChartScreenShot(NULL, 1);
+                int height = (int)(ChartScreenShot(NULL, 3) * value);
+                
+                ChartSetInteger(0, CHART_SCREENSHOT, true);
+                ChartScreenShot(NULL, 2, x, y, barWidth, height, color);
+                ChartSetInteger(0, CHART_SCREENSHOT, false);
+            }
+        }
+        
+        startIndex++;
+    }
+}
+
+// Entry point of the program
+void OnStart()
+{
+    // Calculate correlation
+    CalculateCorrelation();
+    
+    // Draw overlay bars
+    DrawOverlayBars();
+}
